@@ -1,8 +1,11 @@
 <launch>
 	<arg name="rviz" default="true" />
-
+    <arg name="file_path" default="$(find balm2)" />
+	<arg name="max_frames" default="100" />
 	<param name="voxel_size" type="double" value="1" />
-	<param name="file_path" type="string" value="$(find balm2)" />
+	<param name="file_path" type="string" value="$(arg file_path)" />
+	<param name="dataset" type="int" value="$(arg dataset)" />
+	<param name="max_frames" type="int" value="$(arg max_frames)" />
 	<node pkg="balm2" type="benchmark_realworld" name="benchmark_realworld" output="screen" />
 
 	<group if="$(arg rviz)">

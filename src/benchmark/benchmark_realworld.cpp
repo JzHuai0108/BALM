@@ -28,6 +28,59 @@ void pub_pl_func(T &pl, ros::Publisher &pub)
 
 ros::Publisher pub_path, pub_test, pub_show;
 
+int max_frames = 100;
+
+int read_tum_pose(vector<double> &tims, PLM(3) &rots, PLV(3) &poss, string prename) {
+  string posename = prename + "optimized_poses.txt";
+  ifstream inFile(posename);
+
+  if(!inFile.is_open())
+  {
+    printf("open %s fail\n", posename.c_str()); return 0;
+  }
+  
+  string lineStr, str;
+  while(getline(inFile, lineStr)) {
+    stringstream ss(lineStr);
+    Eigen::Matrix4d aff;
+    vector<double> nums;
+    while(getline(ss, str, ' '))
+      nums.push_back(stod(str));
+
+    for(int j=0; j<16; j++)
+      aff(j) = nums[j];
+
+    Eigen::Matrix4d affT = aff.transpose();
+    rots.push_back(affT.block<3, 3>(0, 0));
+    poss.push_back(affT.block<3, 1>(0, 3));
+  }
+  inFile.close();
+
+  string timename = prename + "times.txt";
+  ifstream tFile(timename);
+
+  if(!tFile.is_open())
+  {
+    printf("open %s fail\n", timename.c_str()); return 0;
+  }
+  while(getline(tFile, lineStr)) {
+    stringstream ss(lineStr);
+    double time;
+    ss >> time;
+    tims.push_back(time);
+  }
+  tFile.close();
+  if (tims.size() > max_frames) {
+    tims.resize(max_frames);
+    rots.resize(max_frames);
+    poss.resize(max_frames);
+  }
+  std::cout << "first rot:\n" << rots.front() << "\nfirst time: " << std::setprecision(19) << tims.front() << endl;
+  std::cout << "last rot:\n" << rots.back() << "\nlast time: " << std::setprecision(19) << tims.back() << endl;
+  std::cout << "#tims " << tims.size() << ", #poses " << rots.size() << endl;
+  return tims.size();
+}
+
 int read_pose(vector<double> &tims, PLM(3) &rots, PLV(3) &poss, string prename)
 {
   string readname = prename + "alidarPose.csv";
@@ -72,18 +125,28 @@ int read_pose(vector<double> &tims, PLM(3) &rots, PLV(3) &poss, string prename)
   return pose_size;
 }
 
-void read_file(vector<IMUST> &x_buf, vector<pcl::PointCloud<PointType>::Ptr> &pl_fulls, string &prename)
+void read_file(vector<IMUST> &x_buf, vector<pcl::PointCloud<PointType>::Ptr> &pl_fulls, string &prename, int dataset)
 {
-  prename = prename + "/datas/benchmark_realworld/";
+  if (dataset != 1)
+    prename = prename + "/datas/benchmark_realworld/";
 
   PLV(3) poss; PLM(3) rots;
   vector<double> tims;
-  int pose_size = read_pose(tims, rots, poss, prename);
+  int pose_size;
+  if (dataset == 1) {
+    pose_size = read_tum_pose(tims, rots, poss, prename);
+  } else {
+    pose_size = read_pose(tims, rots, poss, prename);
+  }
   
   for(int m=0; m<pose_size; m++)
   {
     string filename = prename + "full" + to_string(m) + ".pcd";
-
+    if (dataset == 1) {
+      char str[12];
+      sprintf(str, "%06d.pcd", m);
+      filename = prename + "Scans/" + str;
+    }
     pcl::PointCloud<PointType>::Ptr pl_ptr(new pcl::PointCloud<PointType>());
     pcl::PointCloud<pcl::PointXYZI> pl_tem;
     pcl::io::loadPCDFile(filename, pl_tem);
@@ -156,8 +219,12 @@ int main(int argc, char **argv)
   n.param<double>("voxel_size", voxel_size, 1);
   string file_path;
   n.param<string>("file_path", file_path, "");
+  int dataset;
+  n.param<int>("dataset", dataset, 0);
 
-  read_file(x_buf, pl_fulls, file_path);
+  n.param<int>("max_frames", max_frames, 100);
+
+  read_file(x_buf, pl_fulls, file_path, dataset);
 
   IMUST es0 = x_buf[0];
   for(uint i=0; i<x_buf.size(); i++)
