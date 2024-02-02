@@ -1,11 +1,11 @@
 <launch>
 	<arg name="rviz" default="true" />
-
-	<param name="voxel_size" type="double" value="0.4" />
-	<param name="file_path" type="string" value="/media/jhuai/BackupPlus/jhuai/data/whu_tls_1030/project1/trans/absolute_pgo/all.txt" />
-	<param name="session1pcddir" type="string" value="/media/jhuai/BackupPlus/jhuai/data/whu_tls_1030/project1/downsample/" />
-	<param name="session2pcddir" type="string" value="/media/jhuai/BackupPlus/jhuai/data/whu_tls_1030/project2/downsample/" />
-	<param name="outposefile" type="string" value="/media/jhuai/BackupPlus/jhuai/data/whu_tls_1030/project1/trans/absolute_pgo/balm2.txt" />
+	<param name="voxel_size" type="double" value="0.5" />
+	<param name="file_path" type="string" value="/media/pi/BackupPlus/jhuai/data/whu_tls_1030/project1/trans/absolute_pgo/all.txt" />
+	<param name="session1pcddir" type="string" value="/media/pi/BackupPlus/jhuai/data/whu_tls_1030/project1/downsample/" />
+	<param name="session2pcddir" type="string" value="/media/pi/BackupPlus/jhuai/data/whu_tls_1030/project2/downsample/" />
+	<param name="outposefile" type="string" value="/media/pi/BackupPlus/jhuai/data/whu_tls_1030/project1/trans/absolute_pgo/balm2.txt" />
+	<param name="ds_voxel_size" type="double" value="0.2" />
 	<node pkg="balm2" type="whu_tls_align" name="whu_tls_align" output="screen" />
 
 	<group if="$(arg rviz)">

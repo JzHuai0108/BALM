@@ -1,3 +1,5 @@
+#define PCL_NO_PRECOMPILE
+
 #include "tools.hpp"
 #include <ros/ros.h>
 #include <Eigen/Eigenvalues>
@@ -9,7 +11,7 @@
 #include <tf/transform_broadcaster.h>
 #include "bavoxel.hpp"
 
-#include <pcl/filters/voxel_grid.h>
+#include <pcl/filters/uniform_sampling.h>
 #include <pcl/io/pcd_io.h>
 #include <malloc.h>
 
@@ -96,7 +98,7 @@ std::vector<fs::path> get_all(fs::path const & root, std::string const & ext)
 }
 
 void read_file(vector<IMUST> &x_buf, vector<pcl::PointCloud<PointType>::Ptr> &pl_fulls, 
-    string &posefilename, string &session1dir, string &session2dir) {
+    string &posefilename, string &session1dir, string &session2dir, double ds_voxel_size) {
   PLV(3) poss; PLM(3) rots;
   vector<double> tims;
   int pose_size = read_pose(tims, rots, poss, posefilename);
@@ -108,22 +110,21 @@ void read_file(vector<IMUST> &x_buf, vector<pcl::PointCloud<PointType>::Ptr> &pl
     cerr << "Warning: Number of poses and point clouds do not match." << endl;
   }
 
-  // only use the last few pose-frame pairs
-  size_t lastk = 16;
-  size_t skip = fnlist.size() - lastk;
-  fnlist = std::vector<fs::path>(fnlist.begin() + skip, fnlist.end());
-  tims = std::vector<double>(tims.begin() + skip, tims.end());
-  rots = PLM(3)(rots.begin() + skip, rots.end());
-  poss = PLV(3)(poss.begin() + skip, poss.end());
-
+  auto filter = new pcl::UniformSampling<pcl::PointXYZI>();
+  filter->setRadiusSearch(ds_voxel_size);
   for(int m=0; m<fnlist.size(); m++)
   {
     string filename = fnlist[m].string();
 
     pcl::PointCloud<PointType>::Ptr pl_ptr(new pcl::PointCloud<PointType>());
-    pcl::PointCloud<pcl::PointXYZI> pl_tem;
-    pcl::io::loadPCDFile(filename, pl_tem);
-    for(pcl::PointXYZI &pp: pl_tem.points)
+    std::shared_ptr<pcl::PointCloud<pcl::PointXYZI>> pl_tem(new pcl::PointCloud<pcl::PointXYZI>());
+    pcl::io::loadPCDFile(filename, *pl_tem);
+
+    filter->setInputCloud(pl_tem);
+    pcl::PointCloud<pcl::PointXYZI>::Ptr filtered(new pcl::PointCloud<pcl::PointXYZI>());
+    filter->filter(*filtered);
+
+    for(pcl::PointXYZI &pp: filtered->points)
     {
       PointType ap;
       ap.x = pp.x; ap.y = pp.y; ap.z = pp.z;
@@ -222,8 +223,10 @@ int main(int argc, char **argv)
   size_t lastindex = outposefile.find_last_of(".");
   if (lastindex != string::npos)
     refposefile = outposefile.substr(0, lastindex) + "orig.txt";
+  double ds_voxel_size;
+  n.param<double>("ds_voxel_size", ds_voxel_size, 0.1);
 
-  read_file(x_buf, pl_fulls, file_path, session1pcddir, session2pcddir);
+  read_file(x_buf, pl_fulls, file_path, session1pcddir, session2pcddir, ds_voxel_size);
   save_poses(x_buf, refposefile);
 
   IMUST es0 = x_buf[0];
@@ -238,8 +241,8 @@ int main(int argc, char **argv)
 
   data_show(x_buf, pl_fulls);
   printf("Check the point cloud with the initial poses.\n");
-  printf("If no problem, input '1' to continue or '0' to exit...\n");
-  int a; cin >> a; if(a==0) exit(0);
+  // printf("If no problem, input '1' to continue or '0' to exit...\n");
+  // int a; cin >> a; if(a==0) exit(0);
 
   pcl::PointCloud<PointType> pl_full, pl_surf, pl_path, pl_send;
   for(int iterCount=0; iterCount<1; iterCount++)
@@ -268,8 +271,8 @@ int main(int argc, char **argv)
     pub_pl_func(pl_send, pub_cute);
     printf("\nThe planes (point association) cut by adaptive voxelization.\n");
     printf("If the planes are too few, the optimization will be degenerated and fail.\n");
-    printf("If no problem, input '1' to continue or '0' to exit...\n");
-    int a; cin >> a; if(a==0) exit(0);
+    // printf("If no problem, input '1' to continue or '0' to exit...\n");
+    // int a; cin >> a; if(a==0) exit(0);
     pl_send.clear(); pub_pl_func(pl_send, pub_cute);
 
     if(voxhess.plvec_voxels.size() < 3 * x_buf.size())
