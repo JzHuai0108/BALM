@@ -1100,8 +1100,8 @@ public:
       x_ab[i].p = x_stats[i-1].R.transpose() * (x_stats[i].p - x_stats[i-1].p);
       x_ab[i].R = x_stats[i-1].R.transpose() * x_stats[i].R;
     }
-
-    for(int i=0; i<10; i++)
+    int max_iter = 30;
+    for(int i=0; i<max_iter; i++)
     {
       if(is_calc_hess)
       {

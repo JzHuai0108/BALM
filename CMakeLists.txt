@@ -25,6 +25,7 @@ find_package(catkin REQUIRED COMPONENTS
 find_package(Eigen3 REQUIRED)
 find_package(PCL REQUIRED)
 find_package(Ceres REQUIRED)
+find_package(Boost REQUIRED COMPONENTS filesystem)
 
 catkin_package(
   CATKIN_DEPENDS geometry_msgs nav_msgs roscpp rospy std_msgs 
@@ -47,6 +48,9 @@ target_link_libraries(benchmark_virtual ${catkin_LIBRARIES} ${PCL_LIBRARIES})
 
 add_executable(benchmark_realworld src/benchmark/benchmark_realworld.cpp)
 target_link_libraries(benchmark_realworld ${catkin_LIBRARIES} ${PCL_LIBRARIES})
+
+add_executable(whu_tls_align src/benchmark/whu_tls_align.cpp)
+target_link_libraries(whu_tls_align ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${Boost_LIBRARIES})
 
 add_executable(PA_test src/compare_test/PA_test.cpp)
 target_link_libraries(PA_test ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${CERES_LIBRARIES})
