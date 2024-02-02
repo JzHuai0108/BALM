@@ -1,6 +1,6 @@
 <launch>
 	<arg name="rviz" default="true" />
-	<param name="voxel_size" type="double" value="0.5" />
+	<param name="voxel_size" type="double" value="1.6" />
 	<param name="file_path" type="string" value="/media/pi/BackupPlus/jhuai/data/whu_tls_1030/project1/trans/absolute_pgo/all.txt" />
 	<param name="session1pcddir" type="string" value="/media/pi/BackupPlus/jhuai/data/whu_tls_1030/project1/downsample/" />
 	<param name="session2pcddir" type="string" value="/media/pi/BackupPlus/jhuai/data/whu_tls_1030/project2/downsample/" />

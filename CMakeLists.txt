@@ -24,7 +24,7 @@ find_package(catkin REQUIRED COMPONENTS
 
 find_package(Eigen3 REQUIRED)
 find_package(PCL REQUIRED)
-find_package(Ceres REQUIRED)
+# find_package(Ceres REQUIRED)
 find_package(Boost REQUIRED COMPONENTS filesystem)
 
 catkin_package(
@@ -37,7 +37,7 @@ include_directories(
   include
   ${catkin_INCLUDE_DIRS}
   ${PCL_INCLUDE_DIRS}
-  ${CERES_INCLUDE_DIRS}
+  # ${CERES_INCLUDE_DIRS}
 )
 
 add_executable(consistency src/simulation/consistency.cpp)
@@ -52,11 +52,11 @@ target_link_libraries(benchmark_realworld ${catkin_LIBRARIES} ${PCL_LIBRARIES})
 add_executable(whu_tls_align src/benchmark/whu_tls_align.cpp)
 target_link_libraries(whu_tls_align ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${Boost_LIBRARIES})
 
-add_executable(PA_test src/compare_test/PA_test.cpp)
-target_link_libraries(PA_test ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${CERES_LIBRARIES})
+# add_executable(PA_test src/compare_test/PA_test.cpp)
+# target_link_libraries(PA_test ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${CERES_LIBRARIES})
 
-add_executable(BAREG_test src/compare_test/BAREG_test.cpp)
-target_link_libraries(BAREG_test ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${CERES_LIBRARIES})
+# add_executable(BAREG_test src/compare_test/BAREG_test.cpp)
+# target_link_libraries(BAREG_test ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${CERES_LIBRARIES})
 
 add_executable(BALM1_test src/compare_test/BALM1_test.cpp)
 target_link_libraries(BALM1_test ${catkin_LIBRARIES} ${PCL_LIBRARIES})

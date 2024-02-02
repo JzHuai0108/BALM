@@ -1152,7 +1152,7 @@ public:
       // if(iter_stop(dxi, 1e-6))
       //   break;
 
-      if(fabs(residual1-residual2)/residual1 < 1e-6)
+      if(fabs(residual1-residual2)/residual1 < 1e-3)
         break;
     }
 
