@@ -11,6 +11,8 @@
 
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/io/pcd_io.h>
+#include <fstream>
+#include <iomanip>
 #include <malloc.h>
 
 using namespace std;
@@ -27,6 +29,77 @@ void pub_pl_func(T &pl, ros::Publisher &pub)
 }
 
 ros::Publisher pub_path, pub_test, pub_show, pub_cute;
+
+int max_frames = 100;
+
+string join_path(const string &base, const string &name)
+{
+  if(base.empty() || base.back() == '/') return base + name;
+  return base + "/" + name;
+}
+
+int read_tum_pose(vector<double> &tims, vector<string> &pcd_names, PLM(3) &rots, PLV(3) &poss, string prename) {
+  string posename = join_path(prename, "scan_states_odom.txt");
+  ifstream inFile(posename);
+
+  if(!inFile.is_open())
+  {
+    printf("open %s fail\n", posename.c_str()); return 0;
+  }
+  
+  string lineStr, str;
+  while(getline(inFile, lineStr)) {
+    if(lineStr.empty() || lineStr[0] == '#') continue;
+    stringstream ss(lineStr);
+    vector<string> tokens;
+    vector<double> nums;
+    while(ss >> str) {
+      tokens.push_back(str);
+      nums.push_back(stod(str));
+    }
+
+    if(nums.size() == 8) {
+      tims.push_back(nums[0]);
+      pcd_names.push_back(tokens[0] + ".pcd");
+      poss.push_back(Eigen::Vector3d(nums[1], nums[2], nums[3]));
+      Eigen::Quaterniond q(nums[7], nums[4], nums[5], nums[6]);
+      rots.push_back(q.normalized().toRotationMatrix());
+    } else if(nums.size() == 16 || nums.size() == 17) {
+      int offset = nums.size() == 17 ? 1 : 0;
+      Eigen::Matrix4d aff;
+      for(int j=0; j<16; j++)
+        aff(j) = nums[j + offset];
+
+      if(nums.size() == 17) {
+        tims.push_back(nums[0]);
+        pcd_names.push_back(tokens[0] + ".pcd");
+      }
+      Eigen::Matrix4d affT = aff.transpose();
+      rots.push_back(affT.block<3, 3>(0, 0));
+      poss.push_back(affT.block<3, 1>(0, 3));
+    } else {
+      printf("Skip invalid pose line with %zu values: %s\n", nums.size(), lineStr.c_str());
+    }
+  }
+  inFile.close();
+
+  if(tims.size() != rots.size()) {
+    printf("TUM input must contain one timestamp per pose to map poses to pcd filenames.\n");
+    return 0;
+  }
+
+  if (max_frames > 0 && tims.size() > static_cast<size_t>(max_frames)) {
+    tims.resize(max_frames);
+    rots.resize(max_frames);
+    poss.resize(max_frames);
+    pcd_names.resize(max_frames);
+  }
+  if(tims.empty()) return 0;
+  std::cout << "first rot:\n" << rots.front() << "\nfirst time: " << std::setprecision(19) << tims.front() << endl;
+  std::cout << "last rot:\n" << rots.back() << "\nlast time: " << std::setprecision(19) << tims.back() << endl;
+  std::cout << "#tims " << tims.size() << ", #poses " << rots.size() << endl;
+  return tims.size();
+}
 
 int read_pose(vector<double> &tims, PLM(3) &rots, PLV(3) &poss, string prename)
 {
@@ -72,21 +145,59 @@ int read_pose(vector<double> &tims, PLM(3) &rots, PLV(3) &poss, string prename)
   return pose_size;
 }
 
-void read_file(vector<IMUST> &x_buf, vector<pcl::PointCloud<PointType>::Ptr> &pl_fulls, string &prename)
+bool save_tum_poses(const vector<IMUST> &x_buf, const string &filename)
 {
-  prename = prename + "/datas/benchmark_realworld/";
+  ofstream outFile(filename);
+  if(!outFile.is_open())
+  {
+    printf("open %s fail\n", filename.c_str());
+    return false;
+  }
+
+  outFile << std::setprecision(19);
+  for(const IMUST &pose: x_buf)
+  {
+    Eigen::Quaterniond q(pose.R);
+    q.normalize();
+    outFile << pose.t << " "
+            << pose.p.x() << " " << pose.p.y() << " " << pose.p.z() << " "
+            << q.x() << " " << q.y() << " " << q.z() << " " << q.w() << "\n";
+  }
+
+  outFile.close();
+  printf("Saved %zu optimized poses to %s\n", x_buf.size(), filename.c_str());
+  return true;
+}
+
+void read_file(vector<IMUST> &x_buf, vector<pcl::PointCloud<PointType>::Ptr> &pl_fulls, string &prename, int dataset)
+{
+  if (dataset != 1)
+    prename = prename + "/datas/benchmark_realworld/";
 
   PLV(3) poss; PLM(3) rots;
   vector<double> tims;
-  int pose_size = read_pose(tims, rots, poss, prename);
+  vector<string> pcd_names;
+  int pose_size;
+  if (dataset == 1) {
+    pose_size = read_tum_pose(tims, pcd_names, rots, poss, prename);
+  } else {
+    pose_size = read_pose(tims, rots, poss, prename);
+  }
+
+  if(pose_size == 0) return;
   
   for(int m=0; m<pose_size; m++)
   {
     string filename = prename + "full" + to_string(m) + ".pcd";
-
+    if (dataset == 1) {
+      filename = join_path(join_path(prename, "pcd"), pcd_names[m]);
+    }
     pcl::PointCloud<PointType>::Ptr pl_ptr(new pcl::PointCloud<PointType>());
     pcl::PointCloud<pcl::PointXYZI> pl_tem;
-    pcl::io::loadPCDFile(filename, pl_tem);
+    if(pcl::io::loadPCDFile(filename, pl_tem) < 0) {
+      printf("Failed to load %s\n", filename.c_str());
+      continue;
+    }
     for(pcl::PointXYZI &pp: pl_tem.points)
     {
       PointType ap;
@@ -157,8 +268,16 @@ int main(int argc, char **argv)
   n.param<double>("voxel_size", voxel_size, 1);
   string file_path;
   n.param<string>("file_path", file_path, "");
+  int dataset;
+  n.param<int>("dataset", dataset, 0);
 
-  read_file(x_buf, pl_fulls, file_path);
+  n.param<int>("max_frames", max_frames, 100);
+
+  read_file(x_buf, pl_fulls, file_path, dataset);
+  if(x_buf.empty() || pl_fulls.empty()) {
+    printf("No valid input frames were loaded.\n");
+    return 1;
+  }
 
   IMUST es0 = x_buf[0];
   for(uint i=0; i<x_buf.size(); i++)
@@ -166,6 +285,11 @@ int main(int argc, char **argv)
     x_buf[i].p = es0.R.transpose() * (x_buf[i].p - es0.p);
     x_buf[i].R = es0.R.transpose() * x_buf[i].R;
   }
+
+  string output_pose_file;
+  n.param<string>("output_pose_file", output_pose_file, "");
+  if(output_pose_file.empty())
+    output_pose_file = join_path(file_path, "optimized_poses.tum");
 
   win_size = x_buf.size();
   printf("The size of poses: %d\n", win_size);
@@ -227,6 +351,8 @@ int main(int argc, char **argv)
     malloc_trim(0);
   }
 
+  save_tum_poses(x_buf, output_pose_file);
+
   printf("\nRefined point cloud is publishing...\n");
   malloc_trim(0);
   data_show(x_buf, pl_fulls);
@@ -236,5 +362,3 @@ int main(int argc, char **argv)
   return 0;
 
 }
-
-
