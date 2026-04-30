@@ -58,28 +58,16 @@ int read_tum_pose(vector<double> &tims, vector<string> &pcd_names, PLM(3) &rots,
       nums.push_back(stod(str));
     }
 
-    if(nums.size() == 8) {
-      tims.push_back(nums[0]);
-      pcd_names.push_back(tokens[0] + ".pcd");
-      poss.push_back(Eigen::Vector3d(nums[1], nums[2], nums[3]));
-      Eigen::Quaterniond q(nums[7], nums[4], nums[5], nums[6]);
-      rots.push_back(q.normalized().toRotationMatrix());
-    } else if(nums.size() == 16 || nums.size() == 17) {
-      int offset = nums.size() == 17 ? 1 : 0;
-      Eigen::Matrix4d aff;
-      for(int j=0; j<16; j++)
-        aff(j) = nums[j + offset];
-
-      if(nums.size() == 17) {
-        tims.push_back(nums[0]);
-        pcd_names.push_back(tokens[0] + ".pcd");
-      }
-      Eigen::Matrix4d affT = aff.transpose();
-      rots.push_back(affT.block<3, 3>(0, 0));
-      poss.push_back(affT.block<3, 1>(0, 3));
-    } else {
+    if(nums.size() < 8) {
       printf("Skip invalid pose line with %zu values: %s\n", nums.size(), lineStr.c_str());
+      continue;
     }
+
+    tims.push_back(nums[0]);
+    pcd_names.push_back(tokens[0] + ".pcd");
+    poss.push_back(Eigen::Vector3d(nums[1], nums[2], nums[3]));
+    Eigen::Quaterniond q(nums[7], nums[4], nums[5], nums[6]);
+    rots.push_back(q.normalized().toRotationMatrix());
   }
   inFile.close();
 
