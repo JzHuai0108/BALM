@@ -77,10 +77,38 @@ int read_tum_pose(vector<double> &tims, vector<string> &pcd_names, PLM(3) &rots,
   }
 
   if (max_frames > 0 && tims.size() > static_cast<size_t>(max_frames)) {
-    tims.resize(max_frames);
-    rots.resize(max_frames);
-    poss.resize(max_frames);
-    pcd_names.resize(max_frames);
+    size_t frame_num = static_cast<size_t>(max_frames);
+    size_t last_idx = tims.size() - 1;
+    vector<double> sampled_tims;
+    vector<string> sampled_pcd_names;
+    PLM(3) sampled_rots;
+    PLV(3) sampled_poss;
+    sampled_tims.reserve(frame_num);
+    sampled_pcd_names.reserve(frame_num);
+    sampled_rots.reserve(frame_num);
+    sampled_poss.reserve(frame_num);
+
+    if(frame_num == 1) {
+      sampled_tims.push_back(tims.front());
+      sampled_pcd_names.push_back(pcd_names.front());
+      sampled_rots.push_back(rots.front());
+      sampled_poss.push_back(poss.front());
+    } else {
+      for(size_t i=0; i<frame_num; i++) {
+        size_t idx = (i * last_idx + (frame_num - 1) / 2) / (frame_num - 1);
+        sampled_tims.push_back(tims[idx]);
+        sampled_pcd_names.push_back(pcd_names[idx]);
+        sampled_rots.push_back(rots[idx]);
+        sampled_poss.push_back(poss[idx]);
+      }
+    }
+
+    cout << "Downsample TUM poses from " << tims.size() << " to " << frame_num
+         << " with uniform interval sampling." << endl;
+    tims.swap(sampled_tims);
+    pcd_names.swap(sampled_pcd_names);
+    rots.swap(sampled_rots);
+    poss.swap(sampled_poss);
   }
   if(tims.empty()) return 0;
   std::cout << "first rot:\n" << rots.front() << "\nfirst time: " << std::setprecision(19) << tims.front() << endl;
